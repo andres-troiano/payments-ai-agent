@@ -1,0 +1,68 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+.venv*/
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Logs and coverage
+*.log
+logs/
+.coverage
+.coverage.*
+coverage/
+coverage.xml
+htmlcov/
+
+# Type checker / linters caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# IDE/editor
+.vscode/
+.idea/
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.*
+!.env.example
+.python-version
+
+# Data outputs (keep the sample CSV)
+data/*
+!data/.gitkeep
+!data/payments.csv
+
+# RAG index/cache artifacts
+src/rag/index/
+*.faiss
+*.pkl
+*.bin
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Docker local overrides
+docker-compose.override.yml
+
+overview.md
+stage*.md
