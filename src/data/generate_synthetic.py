@@ -25,7 +25,11 @@ try:
         DEVICE_TYPES,
         DEVICE_WEIGHTS,
         OutputPaths,
+        SEGMENTS,
+        SEGMENT_WEIGHTS,
         category_amount_scale,
+        COUNTRY_AMOUNT_MULTIPLIER,
+        COUNTRY_UTC_OFFSET_HOURS,
         compute_fraud_probability,
         generate_timestamps,
         generate_user_activity_weights,
@@ -48,7 +52,11 @@ except Exception:  # pragma: no cover - fallback for script execution
         DEVICE_TYPES,
         DEVICE_WEIGHTS,
         OutputPaths,
+        SEGMENTS,
+        SEGMENT_WEIGHTS,
         category_amount_scale,
+        COUNTRY_AMOUNT_MULTIPLIER,
+        COUNTRY_UTC_OFFSET_HOURS,
         compute_fraud_probability,
         generate_timestamps,
         generate_user_activity_weights,
@@ -72,9 +80,8 @@ def _ensure_output_paths(out: Optional[str], parquet: Optional[str]) -> OutputPa
 
 
 def _generate_transaction_ids(n_tx: int, rng: np.random.Generator) -> np.ndarray:
-    prefix = "txn_"
-    unique = rng.integers(10**9, 10**12, size=n_tx, dtype=np.int64)
-    return np.array([f"{prefix}{u}" for u in unique], dtype=object)
+    # Integer IDs per v2 spec
+    return rng.integers(10**9, 10**12, size=n_tx, dtype=np.int64)
 
 
 def _choose_users(n_tx: int, n_users: int, rng: np.random.Generator) -> Tuple[np.ndarray, np.ndarray]:
@@ -132,8 +139,8 @@ def generate_synthetic_payments(
 ) -> pd.DataFrame:
     """Generate a synthetic payments transactions DataFrame.
 
-    Columns: transaction_id, user_id, merchant, category, amount, timestamp,
-    is_fraudulent, device_type, country
+    Columns: transaction_id, user_id, segment, country, merchant, category, amount,
+    timestamp, device_type, is_refunded, is_fraudulent
     """
 
     rng = set_random_seed(seed)
@@ -147,11 +154,17 @@ def generate_synthetic_payments(
     # Merchant and category sampling
     merchants, cats = sample_merchants(size=n_tx, rng=rng, allowed_categories=categories)
 
+    # Segments per user (stable mapping by user)
+    segment_per_user = np.asarray(
+        rng.choice(SEGMENTS, size=n_users, p=np.asarray(SEGMENT_WEIGHTS) / np.sum(SEGMENT_WEIGHTS))
+    )
+    segments = segment_per_user[user_idx]
+
     # Timestamps with hour-of-day bias
     timestamps = generate_timestamps(n=n_tx, rng=rng, start_date=start_date)
     seasonal = seasonality_multiplier(timestamps) if seasonality else np.ones(n_tx)
 
-    # Amounts
+    # Amounts with category scale, per-user spend, seasonal, and country multiplier
     base_scales = category_amount_scale(cats)
     amounts = _sample_amounts(
         base_scales=base_scales,
@@ -160,18 +173,74 @@ def generate_synthetic_payments(
         seasonal_mult=seasonal,
         rng=rng,
     )
+    # Apply country multipliers
+    country_for_mult = np.asarray(
+        rng.choice(COUNTRIES, size=n_tx, p=np.asarray(COUNTRY_WEIGHTS) / np.sum(COUNTRY_WEIGHTS))
+    )
+    # temporarily choose; will overwrite below to ensure consistency
+    # we need country first to scale amounts
+    country_multiplier = np.vectorize(COUNTRY_AMOUNT_MULTIPLIER.get)(country_for_mult)
+    amounts = (amounts * country_multiplier).round(2)
 
     # Device and country
     device = np.asarray(
         rng.choice(DEVICE_TYPES, size=n_tx, p=np.asarray(DEVICE_WEIGHTS) / np.sum(DEVICE_WEIGHTS))
     )
-    country = np.asarray(
-        rng.choice(COUNTRIES, size=n_tx, p=np.asarray(COUNTRY_WEIGHTS) / np.sum(COUNTRY_WEIGHTS))
-    )
+    country = country_for_mult
 
-    # Fraud probability and labeling
-    fraud_probs = compute_fraud_probability(amounts=amounts, timestamps=timestamps, base_rate=fraud_rate)
-    is_fraud = rng.random(n_tx) < fraud_probs
+    # Refund logic: auto-refund under $50 per policy
+
+    # 1️⃣  Small fraction of transactions lead to refund *requests*
+    p_refund_request = 0.05  # 5% of transactions request a refund
+    refund_requested = rng.random(n_tx) < p_refund_request
+
+    # 2️⃣  Among refund requests:
+    #      - if amount < $50 → automatically approved (per policy)
+    #      - if amount >= $50 → occasionally approved manually (10%)
+    auto_approved = refund_requested & (amounts < 50.0)
+    manual_approved = refund_requested & (amounts >= 50.0) & (rng.random(n_tx) < 0.10)
+
+    # 3️⃣  Combine to get the final refund label
+    is_refunded = auto_approved | manual_approved
+
+    counts_per_user = np.bincount(user_idx, minlength=n_users)
+
+    # Fraud labeling: probabilistic but conditioned on triggers
+    # Use approximate local hour (UTC hour plus country offset)
+    utc_hours = np.array([int(ts.hour) for ts in timestamps], dtype=int)
+    offsets = np.vectorize(COUNTRY_UTC_OFFSET_HOURS.get)(country)
+    local_hours = (utc_hours + offsets) % 24
+
+    late_window = (local_hours >= 2) & (local_hours <= 5)
+    high_amount = amounts > 500.0
+
+    # High-velocity: top 5% of users by activity (use dense counts to index by user_idx)
+    threshold = np.quantile(counts_per_user, 0.95)
+    high_velocity_user = counts_per_user[user_idx] >= threshold
+
+    # Condition mask: at least one trigger
+    # triggered = (high_amount | late_window | high_velocity_user)
+
+    # Base rare probability
+    base_p = np.full(n_tx, 0.0005, dtype=float)
+
+    # Conditional bumps
+    probs = base_p
+
+    # High-value purchases → strong fraud signal
+    probs += np.where(high_amount, 0.040, 0.0)
+
+    # Late-night small purchases can also be suspicious, but only if not trivial
+    probs += np.where(late_window & (amounts > 100), 0.01, 0.0)
+
+    # High-velocity users (bots / stolen cards)
+    probs += np.where(high_velocity_user & (amounts > 200), 0.005, 0.0)
+
+    probs = np.clip(probs, 0.0, 0.05)  # keep rare overall (<5%)
+
+    # Only apply probability where triggered; elsewhere set to near-zero
+    # probs = np.where(triggered, probs, 0.0005)
+    is_fraud = (rng.random(n_tx) < probs)
 
     # Transaction IDs
     txn_ids = _generate_transaction_ids(n_tx=n_tx, rng=rng)
@@ -180,13 +249,15 @@ def generate_synthetic_payments(
         {
             "transaction_id": txn_ids,
             "user_id": user_ids,
+            "segment": segments,
+            "country": country,
             "merchant": merchants,
             "category": cats,
             "amount": amounts,
             "timestamp": pd.to_datetime(timestamps),
-            "is_fraudulent": is_fraud.astype(bool),
             "device_type": device,
-            "country": country,
+            "is_refunded": is_refunded.astype(bool),
+            "is_fraudulent": is_fraud.astype(bool),
         }
     )
 

@@ -12,26 +12,29 @@ pip install -r requirements.txt
 python src/data/generate_synthetic.py --n_users 1000 --n_tx 10000 --out data/payments.csv
 ```
 
-### Dataset Schema
+### Dataset Schema (v2)
 
 Columns produced by `src/data/generate_synthetic.py`:
 
-- `transaction_id` (string): unique identifier per transaction
+- `transaction_id` (int): unique identifier
 - `user_id` (int): unique customer ID
-- `merchant` (string): merchant name (e.g., Amazon, Uber, Walmart)
-- `category` (string): semantic grouping (e_commerce, transport, subscription, ...)
-- `amount` (float): transaction amount in USD-like units (heavy-tailed)
+- `segment` (str): one of `consumer`, `SMB`, `merchant`
+- `country` (str): one of `US`, `MX`, `AR`, `BR`, `CL`
+- `merchant` (str): e.g., Amazon, Uber, Spotify
+- `category` (str): e.g., `e-commerce`, `mobility`, `subscriptions`, `electronics`, ...
+- `amount` (float): transaction amount (log-normalish, with country and seasonality multipliers)
 - `timestamp` (datetime): UTC timestamp with diurnal/seasonal patterns
-- `is_fraudulent` (bool): anomaly label based on amount and late-night hours
-- `device_type` (string): one of mobile/desktop/tablet
-- `country` (string): one of US, MX, AR, BR, CL
+- `device_type` (str): `mobile` | `desktop` | `tablet`
+- `is_refunded` (bool): True if amount < $50 (policy-aligned)
+- `is_fraudulent` (bool): True if amount > $500 or hour ∈ [2–5] or high-velocity user
 
 ### Realistic Patterns Encoded
 
 - User heterogeneity via per-user spend factors and activity weights
 - Merchant popularity differences across categories
 - Seasonality: weekend uplift and Nov/Dec peak
-- Fraud anomalies: higher probability for large late-night transactions
+- Country multipliers (US higher than MX/AR)
+- Refunds under $50; Fraud if > $500, 2–5 AM, or high-velocity users
 
 ### CLI Options
 

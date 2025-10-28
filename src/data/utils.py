@@ -20,20 +20,21 @@ import pandas as pd
 # Catalogs and constants
 # ------------------------------
 
-# (merchant, category, popularity_weight)
+# Categories aligned to v2 spec
+# (merchant, category, popularity_weight) — categories aligned to v2 spec
 MERCHANT_CATALOG: List[Tuple[str, str, float]] = [
-    ("Amazon", "e_commerce", 1.0),
-    ("Walmart", "e_commerce", 0.8),
-    ("MercadoLibre", "e_commerce", 0.7),
-    ("Alibaba", "e_commerce", 0.5),
+    ("Amazon", "e-commerce", 1.0),
+    ("Walmart", "e-commerce", 0.8),
+    ("MercadoLibre", "e-commerce", 0.7),
+    ("Alibaba", "e-commerce", 0.5),
     ("Apple", "electronics", 0.5),
     ("BestBuy", "electronics", 0.4),
     ("Microsoft", "electronics", 0.3),
     ("Steam", "gaming", 0.5),
-    ("Netflix", "subscription", 0.7),
-    ("Spotify", "subscription", 0.6),
-    ("Uber", "transport", 0.9),
-    ("Lyft", "transport", 0.4),
+    ("Netflix", "subscriptions", 0.7),
+    ("Spotify", "subscriptions", 0.6),
+    ("Uber", "mobility", 0.9),
+    ("Lyft", "mobility", 0.4),
     ("DoorDash", "food_delivery", 0.5),
     ("iFood", "food_delivery", 0.4),
     ("Starbucks", "coffee", 0.6),
@@ -48,9 +49,9 @@ MERCHANT_CATALOG: List[Tuple[str, str, float]] = [
 ]
 
 CATEGORY_AMOUNT_SCALE: dict[str, float] = {
-    "e_commerce": 35.0,
-    "transport": 18.0,
-    "subscription": 12.0,
+    "e-commerce": 35.0,
+    "mobility": 18.0,
+    "subscriptions": 12.0,
     "restaurant": 22.0,
     "coffee": 8.0,
     "food_delivery": 24.0,
@@ -67,6 +68,29 @@ COUNTRY_WEIGHTS: Tuple[float, ...] = (0.6, 0.15, 0.07, 0.13, 0.05)
 
 DEVICE_TYPES: Tuple[str, ...] = ("mobile", "desktop", "tablet")
 DEVICE_WEIGHTS: Tuple[float, ...] = (0.65, 0.25, 0.10)
+
+# Segments and weights
+SEGMENTS: Tuple[str, ...] = ("consumer", "SMB", "merchant")
+SEGMENT_WEIGHTS: Tuple[float, ...] = (0.8, 0.15, 0.05)
+
+# Country spend multipliers (US higher vs MX/AR)
+COUNTRY_AMOUNT_MULTIPLIER: dict[str, float] = {
+    "US": 1.10,
+    "MX": 0.92,
+    "AR": 0.88,
+    "BR": 0.96,
+    "CL": 0.94,
+}
+
+# Approximate UTC offsets (hours) for local-time fraud window checks
+# These are coarse, not accounting for DST or regions.
+COUNTRY_UTC_OFFSET_HOURS: dict[str, int] = {
+    "US": -5,  # approximate (ET)
+    "MX": -6,
+    "AR": -3,
+    "BR": -3,
+    "CL": -4,
+}
 
 
 def set_random_seed(seed: int) -> np.random.Generator:
