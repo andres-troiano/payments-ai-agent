@@ -1,4 +1,4 @@
-## Synthetic Payments Dataset (Stage 1)
+## Synthetic Payments Dataset (Stage 1) + Stage 2 Reasoning
 
 This repository contains Stage 1 of "Chat with Your Payments Data": a synthetic transactions generator designed to power downstream LLM analytics and RAG demos.
 
@@ -9,6 +9,8 @@ python -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
 pip install -r requirements.txt
+
+# Generate sample data (Stage 1)
 python src/data/generate_synthetic.py --n_users 1000 --n_tx 10000 --out data/payments.csv
 ```
 
@@ -25,8 +27,8 @@ Columns produced by `src/data/generate_synthetic.py`:
 - `amount` (float): transaction amount (log-normalish, with country and seasonality multipliers)
 - `timestamp` (datetime): UTC timestamp with diurnal/seasonal patterns
 - `device_type` (str): `mobile` | `desktop` | `tablet`
-- `is_refunded` (bool): True if amount < $50 (policy-aligned)
-- `is_fraudulent` (bool): True if amount > $500 or hour ∈ [2–5] or high-velocity user
+- `is_refunded` (bool): Refunds are request-based; if requested and amount < $50 → auto-approve; if ≥ $50 → small manual approval chance.
+- `is_fraudulent` (bool): Rare, probabilistic, and conditioned on triggers: amount > $500, local hour ∈ [2–5], or high-velocity user.
 
 ### Realistic Patterns Encoded
 
@@ -34,7 +36,8 @@ Columns produced by `src/data/generate_synthetic.py`:
 - Merchant popularity differences across categories
 - Seasonality: weekend uplift and Nov/Dec peak
 - Country multipliers (US higher than MX/AR)
-- Refunds under $50; Fraud if > $500, 2–5 AM, or high-velocity users
+- Refunds: request-based, auto-approve < $50 (policy-aligned)
+- Fraud: probabilistic, triggered by high amount, late local hours (2–5), or high velocity
 
 ### CLI Options
 
@@ -60,8 +63,37 @@ Amount median: $30–50 (heavy-tailed)
 Top merchants (by tx count): Amazon, Uber, Walmart, ...
 ```
 
+### Stage 2 – LLM Reasoning & Router (LangChain)
+
+Files under `src/chains/`:
+
+- `prompts.py`: reusable few-shot templates
+- `query_chain.py`: translates questions → safe Pandas code on `df` and executes
+- `summary_chain.py`: turns tabular results into concise text
+- `router_chain.py`: routes queries; `ask()`/`ask_async()` orchestrate data flow
+
+Optional environment (to enable LLM calls; otherwise heuristics are used):
+
+```bash
+export OPENAI_API_KEY=your_key
+```
+
+Usage examples:
+
+```python
+# Routed Q&A over payments.csv
+from src.chains.router_chain import ask
+resp = ask("Which merchants had the highest total revenue last month?")
+print(resp["route"])      # "data"
+print(resp["answer"])     # concise summary
+print(resp["table"][:3])  # preview rows
+
+# Direct query chain
+from src.chains.query_chain import run as run_query
+run_query("Average transaction amount by country")
+```
+
 ### Next Steps
 
-- Stage 2: LLM chains for structured queries and summaries
 - Stage 3: RAG over policy corpus with citations
 - Stage 4: Streamlit UI with tabs and evaluation dashboard
