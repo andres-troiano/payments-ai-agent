@@ -72,25 +72,39 @@ Files under `src/chains/`:
 - `summary_chain.py`: turns tabular results into concise text
 - `router_chain.py`: routes queries; `ask()`/`ask_async()` orchestrate data flow
 
-Optional environment (to enable LLM calls; otherwise heuristics are used):
+LLM provider configuration (optional):
 
 ```bash
-export OPENAI_API_KEY=your_key
+# Choose provider/model (OpenAI default if unset)
+export LLM_PROVIDER=openai   # openai | groq | gemini | cohere
+export LLM_MODEL=gpt-4o-mini # e.g., gpt-4o, llama-3.1-70b-versatile, gemini-1.5-pro, command-r-plus
+
+# Provider API keys (set only those you use)
+export OPENAI_API_KEY=...
+export GROQ_API_KEY=...
+export GOOGLE_API_KEY=...
+export COHERE_API_KEY=...
+
+# Tip: copy .env_example to .env and load in apps/notebooks with python-dotenv
 ```
 
 Usage examples:
 
 ```python
-# Routed Q&A over payments.csv
+# Routed Q&A over payments.csv (explicit provider/model)
 from src.chains.router_chain import ask
-resp = ask("Which merchants had the highest total revenue last month?")
+resp = ask(
+    "Which merchants had the highest total revenue last month?",
+    provider="groq", model="llama-3.1-70b-versatile",
+)
 print(resp["route"])      # "data"
 print(resp["answer"])     # concise summary
 print(resp["table"][:3])  # preview rows
 
-# Direct query chain
-from src.chains.query_chain import run as run_query
-run_query("Average transaction amount by country")
+# Direct query chain with Gemini
+from src.chains.query_chain import QueryChain
+qc = QueryChain(provider="gemini", model="gemini-1.5-pro")
+res = qc.run("Average transaction amount by country")
 ```
 
 ### Next Steps

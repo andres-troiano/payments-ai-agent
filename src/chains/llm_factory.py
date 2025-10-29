@@ -51,5 +51,3 @@ def create_chat_llm(provider: Optional[str] = None, model: Optional[str] = None,
         return ChatCohere(model=model_name, temperature=temperature)
 
     raise ValueError(f"Unsupported LLM provider: {provider_name}")
-
-
