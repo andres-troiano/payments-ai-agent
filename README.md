@@ -1,6 +1,18 @@
-## Synthetic Payments Dataset (Stage 1) + Stage 2 Reasoning
+## Chat with Your Payments Data — Stages 1 & 2
 
-This repository contains Stage 1 of "Chat with Your Payments Data": a synthetic transactions generator designed to power downstream LLM analytics and RAG demos.
+This repository contains Stage 1 (Synthetic Data Generator) and Stage 2 (LLM Reasoning & Router) of the project *Chat with Your Payments Data*: a realistic payments dataset plus LangChain pipelines to answer natural-language questions over it (and prepare for future RAG/policy and fraud chains).
+
+### What’s Implemented
+
+* **Stage 1 – Synthetic Payments Dataset**
+
+  * Modular generator with realistic refunds/fraud logic, seasonality, country multipliers.
+* **Stage 2 – LLM Reasoning & Router**
+
+  * `QueryChain` → translates questions into safe Pandas code and executes it
+  * `SummaryChain` → turns tables into concise explanations
+  * `RouterChain` → routes queries (`data` | `policy` | `fraud`) and orchestrates chains
+  * Provider-agnostic config: OpenAI, Groq, Gemini, Cohere
 
 ### Quickstart
 
@@ -14,7 +26,7 @@ pip install -r requirements.txt
 python src/data/generate_synthetic.py --n_users 1000 --n_tx 10000 --out data/payments.csv
 ```
 
-### Dataset Schema (v2)
+### Dataset Schema
 
 Columns produced by `src/data/generate_synthetic.py`:
 
@@ -58,12 +70,17 @@ python src/data/generate_synthetic.py \
 
 ```
 Rows: 10000
-Unique users: ~900-1000
-Amount median: $30–50 (heavy-tailed)
-Top merchants (by tx count): Amazon, Uber, Walmart, ...
+Unique users: 934
+Amount median: $21.66 | mean: $46.59
+Top merchants (by tx count):
+  - Amazon: 851
+  - Uber: 728
+  - Walmart: 686
+  - Netflix: 588
+  - MercadoLibre: 574
 ```
 
-### Stage 2 – LLM Reasoning & Router (LangChain)
+### Stage 2 — LLM Reasoning & Router (LangChain)
 
 Files under `src/chains/`:
 
@@ -107,7 +124,10 @@ qc = QueryChain(provider="gemini", model="gemini-1.5-pro")
 res = qc.run("Average transaction amount by country")
 ```
 
-### Next Steps
+### Roadmap (Next Stages)
 
-- Stage 3: RAG over policy corpus with citations
-- Stage 4: Streamlit UI with tabs and evaluation dashboard
+* **RAG / Policy Chain**: cite refund/fraud policies
+* **Fraud Chain**: anomaly tables + thresholds
+* **UI (Streamlit)**: chat, charts, evaluation dashboard
+* **Observability**: caching, latency metrics, tokens
+* **Docker + CI**: one-command run and tests
