@@ -38,16 +38,13 @@ def create_chat_llm(provider: Optional[str] = None, model: Optional[str] = None,
         # Default model per provider
         default_map = {
             "openai": "gpt-4o-mini",
-            "groq": "llama3-70b-8192",
+            "groq": "llama-3.3-70b-versatile",
             "gemini": "gemini-1.5-flash-latest",
             "google": "gemini-1.5-flash-latest",
             "google-genai": "gemini-1.5-flash-latest",
             "cohere": "command-r-plus",
         }
         model_name = default_map.get(provider_name, "gpt-4o-mini")
-
-    logger.info(f'*** PROVIDER NAME: {provider_name}')
-    logger.info(f'*** MODEL NAME: {model_name}')
 
     if provider_name == "openai":
         from langchain_openai import ChatOpenAI
@@ -57,7 +54,13 @@ def create_chat_llm(provider: Optional[str] = None, model: Optional[str] = None,
     if provider_name == "groq":
         from langchain_groq import ChatGroq
 
-        return ChatGroq(model=model_name, temperature=temperature)
+        # Groq's OpenAI-compatible endpoint may require max_tokens; set a safe default.
+        max_tokens_env = os.getenv("LLM_MAX_TOKENS")
+        try:
+            max_tokens = int(max_tokens_env) if max_tokens_env else 256
+        except Exception:
+            max_tokens = 256
+        return ChatGroq(model=model_name, temperature=temperature, max_tokens=max_tokens)
 
     if provider_name in ("gemini", "google", "google-genai"):
         from langchain_google_genai import ChatGoogleGenerativeAI

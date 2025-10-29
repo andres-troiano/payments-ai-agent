@@ -14,13 +14,16 @@ import pandas as pd
 try:
     from langchain.cache import InMemoryCache
     from langchain.globals import set_llm_cache
-    from langchain.chains import LLMChain
+    # LCEL output parser
+    try:
+        from langchain_core.output_parsers import StrOutputParser
+    except Exception:  # older versions fallback
+        StrOutputParser = None  # type: ignore
     from .prompts import sql_prompt_template
     from .llm_factory import create_chat_llm
 except Exception:  # graceful fallback if LangChain not installed
     InMemoryCache = None  # type: ignore
     set_llm_cache = lambda *_args, **_kwargs: None  # type: ignore
-    LLMChain = None  # type: ignore
     from .prompts import sql_prompt_template  # type: ignore
     def create_chat_llm(*_args, **_kwargs):  # type: ignore
         return None
@@ -71,6 +74,43 @@ def _execute_pandas_code(df: pd.DataFrame, code: str) -> pd.DataFrame:
     return result
 
 
+def _extract_code(text: str) -> str:
+    """Extract executable Python code from LLM output.
+
+    - Prefer content inside triple backticks
+    - Strip optional language tag after backticks
+    - Fallback: take from the first line containing 'result =' or 'df'/'pd'
+    """
+    if not isinstance(text, str):
+        return str(text)
+
+    # Triple backtick fenced block
+    if "```" in text:
+        parts = text.split("```")
+        # find first non-empty fenced segment
+        for seg in parts:
+            s = seg.strip()
+            if not s:
+                continue
+            # remove optional language hint like 'python\n'
+            lines = s.splitlines()
+            if lines and lines[0].strip().lower().startswith("python"):
+                lines = lines[1:]
+            code = "\n".join(lines).strip()
+            if code:
+                return code
+
+    # Fallback: find the first occurrence of a likely code start
+    markers = ["result =", "df[", "df.", "pd."]
+    lower = text
+    starts = [lower.find(m) for m in markers if lower.find(m) != -1]
+    if starts:
+        start = min(starts)
+        return text[start:].strip()
+
+    return text.strip()
+
+
 def _fallback_translate(question: str) -> str:
     q = question.lower()
     if "highest" in q and ("revenue" in q or "amount" in q) and "merchant" in q:
@@ -109,17 +149,24 @@ class QueryChain:
         except Exception:
             pass
 
-        self.llm_chain: Optional[LLMChain] = None
+        self.llm_chain = None  # backward name retained for metrics
+        self.llm_pipeline = None
         # Track effective provider/model for logging/metrics
         self.llm_provider = (provider or os.getenv("LLM_PROVIDER") or "openai").strip().lower()
         self.llm_model = (model or os.getenv("LLM_MODEL") or "auto").strip()
         try:
             llm = create_chat_llm(provider=provider, model=model, temperature=0.1)
-            if LLMChain and llm:
-                self.llm_chain = LLMChain(llm=llm, prompt=sql_prompt_template)
+            if llm and sql_prompt_template:
+                if StrOutputParser is not None:
+                    self.llm_pipeline = sql_prompt_template | llm | StrOutputParser()
+                else:
+                    # Minimal fallback: just the llm callable
+                    self.llm_pipeline = sql_prompt_template | llm
+                self.llm_chain = True  # truthy for metrics
                 logger.info("QueryChain initialized with LLM provider=%s model=%s", self.llm_provider, self.llm_model)
         except Exception:
             self.llm_chain = None
+            self.llm_pipeline = None
             logger.info("QueryChain initialized without LLM; using heuristic fallback")
 
     def _generate_code(self, question: str) -> str:
@@ -128,14 +175,38 @@ class QueryChain:
             return _fallback_translate(question)
         try:
             logger.info("QueryChain using LLM for question: %s", question)
-            return self.llm_chain.run({"question": question})  # type: ignore
-        except Exception:
-            logger.info("QueryChain LLM error; falling back for question: %s", question)
+            if self.llm_pipeline is not None:
+                raw = self.llm_pipeline.invoke({"question": question})
+            else:
+                # Shouldn't happen, but guard
+                raw = _fallback_translate(question)
+            return _extract_code(raw)
+        except Exception as e:
+            logger.warning("QueryChain LLM error; falling back. Error: %s", e, exc_info=True)
             return _fallback_translate(question)
 
     def run(self, question: str) -> QueryResult:
         code = self._generate_code(question)
-        table = _execute_pandas_code(self.df, code)
+        try:
+            table = _execute_pandas_code(self.df, code)
+        except Exception as e:
+            # One corrective retry with stricter instruction
+            logger.info("Retrying with stricter instruction due to exec error: %s", e)
+            if self.llm_pipeline is not None:
+                try:
+                    strict_q = question + "\nReturn ONLY executable Python code that assigns a DataFrame to variable 'result'. No explanations."
+                    raw = self.llm_pipeline.invoke({"question": strict_q})
+                    code2 = _extract_code(raw)
+                    table = _execute_pandas_code(self.df, code2)
+                except Exception as e2:
+                    logger.warning("Second attempt failed; falling back. Error: %s", e2, exc_info=True)
+                    # final fallback
+                    code3 = _fallback_translate(question)
+                    table = _execute_pandas_code(self.df, code3)
+            else:
+                # no LLM, just fallback
+                code3 = _fallback_translate(question)
+                table = _execute_pandas_code(self.df, code3)
         # Simple textual answer: use top row(s)
         answer = f"Computed result with {len(table)} rows. Showing top rows."
         return QueryResult(answer=answer, table=table)

@@ -9,13 +9,15 @@ import pandas as pd
 try:
     from langchain.cache import InMemoryCache
     from langchain.globals import set_llm_cache
-    from langchain.chains import LLMChain
+    try:
+        from langchain_core.output_parsers import StrOutputParser
+    except Exception:
+        StrOutputParser = None  # type: ignore
     from .prompts import summary_prompt_template
     from .llm_factory import create_chat_llm
 except Exception:
     InMemoryCache = None  # type: ignore
     set_llm_cache = lambda *_args, **_kwargs: None  # type: ignore
-    LLMChain = None  # type: ignore
     from .prompts import summary_prompt_template  # type: ignore
     def create_chat_llm(*_args, **_kwargs):  # type: ignore
         return None
@@ -31,16 +33,22 @@ class SummaryChain:
         except Exception:
             pass
 
-        self.llm_chain: Optional[LLMChain] = None
+        self.llm_chain = None  # backward compat name
+        self.llm_pipeline = None
         self.llm_provider = (provider or os.getenv("LLM_PROVIDER") or "openai").strip().lower()
         self.llm_model = (model or os.getenv("LLM_MODEL") or "auto").strip()
         try:
             llm = create_chat_llm(provider=provider, model=model, temperature=0.2)
-            if LLMChain and llm:
-                self.llm_chain = LLMChain(llm=llm, prompt=summary_prompt_template)
+            if llm and summary_prompt_template:
+                if StrOutputParser is not None:
+                    self.llm_pipeline = summary_prompt_template | llm | StrOutputParser()
+                else:
+                    self.llm_pipeline = summary_prompt_template | llm
+                self.llm_chain = True
                 logger.info("SummaryChain initialized with LLM provider=%s model=%s", self.llm_provider, self.llm_model)
         except Exception:
             self.llm_chain = None
+            self.llm_pipeline = None
             logger.info("SummaryChain initialized without LLM; using heuristic fallback")
 
     def run(self, question: str, result: pd.DataFrame) -> str:
@@ -51,9 +59,11 @@ class SummaryChain:
             return f"Summary for '{question}': {len(result)} rows. Top rows:\n{preview.to_markdown(index=False)}"
         try:
             logger.info("SummaryChain using LLM for question: %s", question)
-            return self.llm_chain.run({"question": question, "result": result.head(20).to_csv(index=False)})  # type: ignore
-        except Exception:
-            logger.info("SummaryChain LLM error; falling back for question: %s", question)
+            if self.llm_pipeline is not None:
+                return self.llm_pipeline.invoke({"question": question, "result": result.head(20).to_csv(index=False)})
+            return f"Summary for '{question}': {len(result)} rows. Top rows:\n{result.head(5).to_markdown(index=False)}"
+        except Exception as e:
+            logger.warning("SummaryChain LLM error; falling back. Error: %s", e, exc_info=True)
             preview = result.head(5)
             return f"Summary for '{question}': {len(result)} rows. Top rows:\n{preview.to_markdown(index=False)}"
 

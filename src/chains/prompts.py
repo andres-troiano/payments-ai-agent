@@ -32,7 +32,8 @@ sql_prompt_template = PromptTemplate(
     template=(
         "Translate the user question into safe Pandas code operating on a DataFrame named df.\n"
         "Rules: Only use pandas/numpy, no imports, no file I/O, no network, no os/sys.\n"
-        "Assign the final table to a variable named 'result'.\n\n"
+        "Output ONLY executable Python code. Do NOT include explanations or backticks.\n"
+        "The final object must be assigned to a DataFrame variable named 'result'.\n\n"
         f"{QUERY_FEWSHOTS}\n\n"
         "Question: {question}\nCode:"
     ),

@@ -77,7 +77,7 @@ LLM provider configuration (optional):
 ```bash
 # Choose provider/model (OpenAI default if unset)
 export LLM_PROVIDER=openai   # openai | groq | gemini | cohere
-export LLM_MODEL=gpt-4o-mini # e.g., gpt-4o, llama-3.1-70b-versatile, gemini-1.5-pro, command-r-plus
+export LLM_MODEL=gpt-4o-mini # e.g., gpt-4o, llama-3.3-70b-versatile, gemini-1.5-pro, command-r-plus
 
 # Provider API keys (set only those you use)
 export OPENAI_API_KEY=...
@@ -95,7 +95,7 @@ Usage examples:
 from src.chains.router_chain import ask
 resp = ask(
     "Which merchants had the highest total revenue last month?",
-    provider="groq", model="llama-3.1-70b-versatile",
+    provider="groq", model="llama-3.3-70b-versatile",
 )
 print(resp["route"])      # "data"
 print(resp["answer"])     # concise summary
