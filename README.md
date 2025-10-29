@@ -124,7 +124,7 @@ qc = QueryChain(provider="gemini", model="gemini-1.5-pro")
 res = qc.run("Average transaction amount by country")
 ```
 
-### Example runs
+### Example usage
 
 #### 1. Routed Q&A over Payments Data
 
@@ -150,6 +150,13 @@ followed by Apple at $1,600.81, and Delta at $1,307.85.
 | BestBuy    |  1730.30 |
 | Apple      |  1600.81 |
 | Delta      |  1318.18 |
+```
+
+#### 2. Direct query chain with Gemini
+```python
+from src.chains.query_chain import QueryChain
+qc = QueryChain(provider="gemini", model="gemini-1.5-pro")
+res = qc.run("Average transaction amount by country")
 ```
 
 ### Roadmap (Next Stages)
