@@ -140,9 +140,11 @@ print("Answer:", resp1["answer"])
 ```
 
 **Output:**
-- **Route:** data
-- **Answer:** BestBuy led last month with $1,719.16 in revenue,
+```
+Route: data
+Answer: BestBuy led last month with $1,719.16 in revenue,
 followed by Apple at $1,600.81, and Delta at $1,307.85.
+```
 
 ### Roadmap (Next Stages)
 
