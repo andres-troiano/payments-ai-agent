@@ -44,6 +44,9 @@ Thumbs.db
 !.env.example
 .python-version
 
+# allow example env file
+!.env.example
+
 # Data outputs (keep the sample CSV)
 data/*
 !data/.gitkeep
