@@ -4,6 +4,7 @@ import json
 import os
 import re
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -26,6 +27,9 @@ except Exception:  # graceful fallback if LangChain not installed
 
 
 DEFAULT_DATA_PATH = str(Path(__file__).resolve().parents[2] / "data" / "payments.csv")
+
+
+logger = logging.getLogger(__name__)
 
 
 def _safe_guard_code(code: str) -> None:
@@ -106,19 +110,27 @@ class QueryChain:
             pass
 
         self.llm_chain: Optional[LLMChain] = None
+        # Track effective provider/model for logging/metrics
+        self.llm_provider = (provider or os.getenv("LLM_PROVIDER") or "openai").strip().lower()
+        self.llm_model = (model or os.getenv("LLM_MODEL") or "auto").strip()
         try:
             llm = create_chat_llm(provider=provider, model=model, temperature=0.1)
             if LLMChain and llm:
                 self.llm_chain = LLMChain(llm=llm, prompt=sql_prompt_template)
+                logger.info("QueryChain initialized with LLM provider=%s model=%s", self.llm_provider, self.llm_model)
         except Exception:
             self.llm_chain = None
+            logger.info("QueryChain initialized without LLM; using heuristic fallback")
 
     def _generate_code(self, question: str) -> str:
         if self.llm_chain is None:
+            logger.info("QueryChain using heuristic fallback for question: %s", question)
             return _fallback_translate(question)
         try:
+            logger.info("QueryChain using LLM for question: %s", question)
             return self.llm_chain.run({"question": question})  # type: ignore
         except Exception:
+            logger.info("QueryChain LLM error; falling back for question: %s", question)
             return _fallback_translate(question)
 
     def run(self, question: str) -> QueryResult:

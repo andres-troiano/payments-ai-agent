@@ -31,11 +31,21 @@ def ask(question: str, provider: str | None = None, model: str | None = None) ->
         sc = SummaryChain(provider=provider, model=model)
         summary = sc.run(question, res.table)
         duration = time.time() - started
+        llm_used = bool(qc.llm_chain)
+        metrics = {"latency_ms": int(duration * 1000), "llm_used": llm_used}
+        # attach provider/model hints when available
+        if llm_used:
+            metrics.update({
+                "llm_provider": getattr(qc, "llm_provider", None),
+                "llm_model": getattr(qc, "llm_model", None),
+            })
+        # one-line console hint
+        print(f"[router] llm_used={llm_used} provider={metrics.get('llm_provider','-')} model={metrics.get('llm_model','-')}")
         return {
             "route": r,
             "answer": summary,
             "table": res.table.to_dict(orient="records"),
-            "metrics": {"latency_ms": int(duration * 1000)},
+            "metrics": metrics,
         }
     # Placeholders for future stages
     duration = time.time() - started

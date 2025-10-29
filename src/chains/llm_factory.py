@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from typing import Optional
+import logging
 
 # Base type hint only; actual classes imported lazily
 try:
@@ -9,6 +10,7 @@ try:
 except Exception:
     pass
 
+logger = logging.getLogger(__name__)
 
 def create_chat_llm(provider: Optional[str] = None, model: Optional[str] = None, temperature: float = 0.1):
     """Create a LangChain chat model based on provider/model env or args.
@@ -27,7 +29,25 @@ def create_chat_llm(provider: Optional[str] = None, model: Optional[str] = None,
     """
 
     provider_name = (provider or os.getenv("LLM_PROVIDER") or "openai").strip().lower()
-    model_name = (model or os.getenv("LLM_MODEL") or "gpt-4o-mini").strip()
+    env_model = os.getenv("LLM_MODEL")
+    if model:
+        model_name = model.strip()
+    elif env_model:
+        model_name = env_model.strip()
+    else:
+        # Default model per provider
+        default_map = {
+            "openai": "gpt-4o-mini",
+            "groq": "llama3-70b-8192",
+            "gemini": "gemini-1.5-flash-latest",
+            "google": "gemini-1.5-flash-latest",
+            "google-genai": "gemini-1.5-flash-latest",
+            "cohere": "command-r-plus",
+        }
+        model_name = default_map.get(provider_name, "gpt-4o-mini")
+
+    logger.info(f'*** PROVIDER NAME: {provider_name}')
+    logger.info(f'*** MODEL NAME: {model_name}')
 
     if provider_name == "openai":
         from langchain_openai import ChatOpenAI
