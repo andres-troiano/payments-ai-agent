@@ -146,9 +146,9 @@ Answer: BestBuy led last month with $1,719.16 in revenue,
 followed by Apple at $1,600.81, and Delta at $1,307.85.
 | merchant   |   amount |
 |:-----------|---------:|
-| BestBuy      |  1730.30 |
-| Apple    |  1600.81 |
-| Delta  |  1318.18 |
+| BestBuy    |  1730.30 |
+| Apple      |  1600.81 |
+| Delta      |  1318.18 |
 ```
 
 ### Roadmap (Next Stages)
