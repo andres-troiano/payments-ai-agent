@@ -137,6 +137,7 @@ resp1 = ask(q1)
 
 print("Route:", resp1["route"])     # route chosen, should be "data" in this case
 print("Answer:", resp1["answer"])   # natural language answer
+display(pd.DataFrame(resp1['table']).head(3))   # raw table queried
 ```
 
 **Output:**
