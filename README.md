@@ -124,9 +124,9 @@ qc = QueryChain(provider="gemini", model="gemini-1.5-pro")
 res = qc.run("Average transaction amount by country")
 ```
 
-#### Example runs
+### Example runs
 
-##### 1. Routed Q&A over Payments Data
+#### 1. Routed Q&A over Payments Data
 
 ```python
 from src.chains.router_chain import ask
@@ -139,10 +139,9 @@ print("Route:", resp1["route"])
 print("Answer:", resp1["answer"])
 ```
 
-*Output:*
-
-*Route:* data
-*Answer:* BestBuy led last month with $1,719.16 in revenue,
+**Output:**
+- **Route:** data
+- **Answer:** BestBuy led last month with $1,719.16 in revenue,
 followed by Apple at $1,600.81, and Delta at $1,307.85.
 
 ### Roadmap (Next Stages)
