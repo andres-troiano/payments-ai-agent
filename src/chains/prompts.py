@@ -75,5 +75,3 @@ router_prompt_template = PromptTemplate(
         "Question: {question}\nClass:"
     ),
 )
-
-

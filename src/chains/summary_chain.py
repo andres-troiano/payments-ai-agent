@@ -9,28 +9,31 @@ try:
     from langchain.cache import InMemoryCache
     from langchain.globals import set_llm_cache
     from langchain.chains import LLMChain
-    from langchain_openai import ChatOpenAI
     from .prompts import summary_prompt_template
+    from .llm_factory import create_chat_llm
 except Exception:
     InMemoryCache = None  # type: ignore
     set_llm_cache = lambda *_args, **_kwargs: None  # type: ignore
     LLMChain = None  # type: ignore
-    ChatOpenAI = None  # type: ignore
     from .prompts import summary_prompt_template  # type: ignore
+    def create_chat_llm(*_args, **_kwargs):  # type: ignore
+        return None
 
 
 class SummaryChain:
-    def __init__(self, model: str = "gpt-4o-mini") -> None:
+    def __init__(self, provider: Optional[str] = None, model: Optional[str] = None) -> None:
         try:
             set_llm_cache(InMemoryCache())  # type: ignore
         except Exception:
             pass
 
         self.llm_chain: Optional[LLMChain] = None
-        api_key = os.getenv("OPENAI_API_KEY")
-        if LLMChain and ChatOpenAI and api_key:
-            llm = ChatOpenAI(model=model, temperature=0.2)
-            self.llm_chain = LLMChain(llm=llm, prompt=summary_prompt_template)
+        try:
+            llm = create_chat_llm(provider=provider, model=model, temperature=0.2)
+            if LLMChain and llm:
+                self.llm_chain = LLMChain(llm=llm, prompt=summary_prompt_template)
+        except Exception:
+            self.llm_chain = None
 
     def run(self, question: str, result: pd.DataFrame) -> str:
         if self.llm_chain is None:
@@ -46,5 +49,3 @@ class SummaryChain:
 
 def run(question: str, result: pd.DataFrame) -> str:
     return SummaryChain().run(question, result)
-
-

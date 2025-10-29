@@ -22,13 +22,13 @@ def route(question: str) -> str:
     return "data"
 
 
-def ask(question: str) -> Dict[str, Any]:
+def ask(question: str, provider: str | None = None, model: str | None = None) -> Dict[str, Any]:
     started = time.time()
     r = route(question)
     if r == "data":
-        qc = QueryChain()
+        qc = QueryChain(provider=provider, model=model)
         res = qc.run(question)
-        sc = SummaryChain()
+        sc = SummaryChain(provider=provider, model=model)
         summary = sc.run(question, res.table)
         duration = time.time() - started
         return {
@@ -42,8 +42,6 @@ def ask(question: str) -> Dict[str, Any]:
     return {"route": r, "answer": "Not implemented yet.", "table": [], "metrics": {"latency_ms": int(duration * 1000)}}
 
 
-async def ask_async(question: str) -> Dict[str, Any]:
+async def ask_async(question: str, provider: str | None = None, model: str | None = None) -> Dict[str, Any]:
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, ask, question)
-
-
+    return await loop.run_in_executor(None, ask, question, provider, model)

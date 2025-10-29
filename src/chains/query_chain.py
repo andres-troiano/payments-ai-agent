@@ -14,14 +14,15 @@ try:
     from langchain.cache import InMemoryCache
     from langchain.globals import set_llm_cache
     from langchain.chains import LLMChain
-    from langchain_openai import ChatOpenAI
     from .prompts import sql_prompt_template
-except Exception:  # graceful fallback if LangChain/OpenAI not installed
+    from .llm_factory import create_chat_llm
+except Exception:  # graceful fallback if LangChain not installed
     InMemoryCache = None  # type: ignore
     set_llm_cache = lambda *_args, **_kwargs: None  # type: ignore
     LLMChain = None  # type: ignore
-    ChatOpenAI = None  # type: ignore
     from .prompts import sql_prompt_template  # type: ignore
+    def create_chat_llm(*_args, **_kwargs):  # type: ignore
+        return None
 
 
 DEFAULT_DATA_PATH = str(Path(__file__).resolve().parents[2] / "data" / "payments.csv")
@@ -94,7 +95,7 @@ class QueryResult:
 
 
 class QueryChain:
-    def __init__(self, data_path: Optional[str] = None, model: str = "gpt-4o-mini") -> None:
+    def __init__(self, data_path: Optional[str] = None, provider: Optional[str] = None, model: Optional[str] = None) -> None:
         self.data_path = data_path or DEFAULT_DATA_PATH
         self.df = pd.read_csv(self.data_path, parse_dates=["timestamp"])
 
@@ -105,10 +106,12 @@ class QueryChain:
             pass
 
         self.llm_chain: Optional[LLMChain] = None
-        api_key = os.getenv("OPENAI_API_KEY")
-        if LLMChain and ChatOpenAI and api_key:
-            llm = ChatOpenAI(model=model, temperature=0.1)
-            self.llm_chain = LLMChain(llm=llm, prompt=sql_prompt_template)
+        try:
+            llm = create_chat_llm(provider=provider, model=model, temperature=0.1)
+            if LLMChain and llm:
+                self.llm_chain = LLMChain(llm=llm, prompt=sql_prompt_template)
+        except Exception:
+            self.llm_chain = None
 
     def _generate_code(self, question: str) -> str:
         if self.llm_chain is None:
@@ -130,5 +133,3 @@ def run(question: str) -> Dict[str, Any]:
     qc = QueryChain()
     res = qc.run(question)
     return res.to_dict()
-
-
