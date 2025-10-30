@@ -1,13 +1,13 @@
-## Chat with Your Payments Data — Stages 1 & 2
+## Chat with Your Payments Data - Stages 1 & 2
 
 This repository contains Stage 1 (Synthetic Data Generator) and Stage 2 (LLM Reasoning & Router) of the project *Chat with Your Payments Data*: a realistic payments dataset plus LangChain pipelines to answer natural-language questions over it (and prepare for future RAG/policy and fraud chains).
 
 ### What’s Implemented
 
-* **Stage 1 – Synthetic Payments Dataset**
+* **Stage 1 - Synthetic Payments Dataset**
 
   * Modular generator with realistic refunds/fraud logic, seasonality, country multipliers.
-* **Stage 2 – LLM Reasoning & Router**
+* **Stage 2 - LLM Reasoning & Router**
 
   * `QueryChain` → translates questions into safe Pandas code and executes it
   * `SummaryChain` → turns tables into concise explanations
@@ -80,7 +80,7 @@ Top merchants (by tx count):
   - MercadoLibre: 574
 ```
 
-### Stage 2 — LLM Reasoning & Router (LangChain)
+### Stage 2 - LLM Reasoning & Router (LangChain)
 
 Files under `src/chains/`:
 
@@ -140,7 +140,7 @@ qc = QueryChain(provider="gemini", model="gemini-1.5-pro")
 res = qc.run("Average transaction amount by country")
 ```
 
-### Stage 3 — Interactive UI (Streamlit)
+### Stage 3 - Interactive UI (Streamlit)
 
 Run the app:
 
