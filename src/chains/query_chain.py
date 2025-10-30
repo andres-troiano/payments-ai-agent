@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 try:
-    from langchain.cache import InMemoryCache
+    from langchain_community.cache import InMemoryCache
     from langchain.globals import set_llm_cache
     # LCEL output parser
     try:

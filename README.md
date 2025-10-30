@@ -105,25 +105,6 @@ export COHERE_API_KEY=...
 # Tip: copy .env_example to .env and load in apps/notebooks with python-dotenv
 ```
 
-Usage examples:
-
-```python
-# Routed Q&A over payments.csv (explicit provider/model)
-from src.chains.router_chain import ask
-resp = ask(
-    "Which merchants had the highest total revenue last month?",
-    provider="groq", model="llama-3.3-70b-versatile",
-)
-print(resp["route"])      # "data"
-print(resp["answer"])     # concise summary
-print(resp["table"][:3])  # preview rows
-
-# Direct query chain with Gemini
-from src.chains.query_chain import QueryChain
-qc = QueryChain(provider="gemini", model="gemini-1.5-pro")
-res = qc.run("Average transaction amount by country")
-```
-
 ### Example usage
 
 #### 1. Routed Q&A over Payments Data
@@ -159,10 +140,33 @@ qc = QueryChain(provider="gemini", model="gemini-1.5-pro")
 res = qc.run("Average transaction amount by country")
 ```
 
+### Stage 3 — Interactive UI (Streamlit)
+
+Run the app:
+
+```bash
+streamlit run src/ui/app_streamlit.py
+```
+
+What’s included:
+
+- Tabs: Analytics (chat), Fraud Explorer (placeholder), Policy Search (placeholder), Evaluation Dashboard
+- Sidebar: provider/model selector (OpenAI/Groq/Gemini/Cohere), cache toggle, example queries, live metrics
+- Auto-render: bar/line/table based on the returned DataFrame
+
+Optional provider setup (example):
+
+```bash
+export LLM_PROVIDER=groq
+export LLM_MODEL=llama-3.3-70b-versatile
+export GROQ_API_KEY=...
+```
+
+---
+
 ### Roadmap (Next Stages)
 
 * **RAG / Policy Chain**: cite refund/fraud policies
 * **Fraud Chain**: anomaly tables + thresholds
-* **UI (Streamlit)**: chat, charts, evaluation dashboard
 * **Observability**: caching, latency metrics, tokens
 * **Docker + CI**: one-command run and tests

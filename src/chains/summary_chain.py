@@ -7,7 +7,7 @@ import logging
 import pandas as pd
 
 try:
-    from langchain.cache import InMemoryCache
+    from langchain_community.cache import InMemoryCache
     from langchain.globals import set_llm_cache
     try:
         from langchain_core.output_parsers import StrOutputParser
